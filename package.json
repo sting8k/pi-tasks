@@ -1,16 +1,16 @@
 {
-  "name": "@tintinweb/pi-tasks",
+  "name": "@sting8k/pi-tasks",
   "version": "0.7.0",
   "description": "A pi extension that brings Claude Code-style task tracking and coordination to pi.",
-  "author": "tintinweb",
+  "author": "sting8k",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tintinweb/pi-tasks.git"
+    "url": "https://github.com/sting8k/pi-tasks.git"
   },
-  "homepage": "https://github.com/tintinweb/pi-tasks#readme",
+  "homepage": "https://github.com/sting8k/pi-tasks#readme",
   "bugs": {
-    "url": "https://github.com/tintinweb/pi-tasks/issues"
+    "url": "https://github.com/sting8k/pi-tasks/issues"
   },
   "keywords": [
     "pi-package",
@@ -47,7 +47,7 @@
     "extensions": [
       "./src/index.ts"
     ],
-    "video": "https://github.com/tintinweb/pi-tasks/raw/master/media/demo.mp4",
-    "image": "https://github.com/tintinweb/pi-tasks/raw/master/media/screenshot.png"
+    "video": "https://github.com/sting8k/pi-tasks/raw/master/media/demo.mp4",
+    "image": "https://github.com/sting8k/pi-tasks/raw/master/media/screenshot.png"
   }
 }

@@ -1,10 +1,10 @@
-# @tintinweb/pi-tasks
+# @sting8k/pi-tasks
 
 A [pi](https://pi.dev) extension that brings **Claude Code-style task tracking and coordination** to pi. Track multi-step work with structured tasks, dependency management, and a persistent visual widget.
 
 > **Status:** Early release.
 
-<img width="600" alt="pi-tasks screenshot" src="https://github.com/tintinweb/pi-tasks/raw/master/media/screenshot.png" />
+<img width="600" alt="pi-tasks screenshot" src="https://github.com/sting8k/pi-tasks/raw/master/media/screenshot.png" />
 
 https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 ## Install
 
 ```bash
-pi install npm:@tintinweb/pi-tasks
+pi install npm:@sting8k/pi-tasks
 ```
 
 Or load directly for development:
@@ -39,7 +39,7 @@ The extension renders a persistent widget above the editor:
 ```
    Tasks · 4 tasks (1 done, 1 running, 2 open)
    ✓ #1  Design the flux capacitor
-   ✳ #2  Acquiring plutonium… · 2m 49s
+   ● #2  Acquiring plutonium… · 2m 49s
    ○ #3  Install flux capacitor in DeLorean › blocked by #1
    ○ #4  Test time travel at 88 mph › blocked by #2, #3
 ```
@@ -47,9 +47,9 @@ The extension renders a persistent widget above the editor:
 | Icon | Meaning |
 |------|---------|
 | `✓` | Completed (strikethrough + dim) |
-| `●` | In-progress (not actively executing) |
+| `●` | In-progress / active |
 | `○` | Pending |
-| `✳`/`✽` | Animated star spinner — actively executing task (shows `activeForm` text and elapsed time) |
+| active text | Active tasks show `activeForm` text and elapsed time without changing the leading icon |
 
 ### Widget display settings
 
@@ -75,7 +75,7 @@ Create a structured task. Used proactively for complex multi-step work.
 |-----------|------|----------|-------------|
 | `subject` | string | yes | Brief imperative title |
 | `description` | string | yes | Detailed context and acceptance criteria |
-| `activeForm` | string | no | Present continuous form for spinner (e.g., "Running tests") |
+| `activeForm` | string | no | Present continuous active text (e.g., "Running tests") |
 | `metadata` | object | no | Arbitrary key-value pairs |
 
 ```
@@ -119,7 +119,7 @@ Update task fields, status, metadata, and dependencies.
 | `status` | `pending` / `in_progress` / `completed` / `deleted` | New status |
 | `subject` | string | New title |
 | `description` | string | New description |
-| `activeForm` | string | Spinner text |
+| `activeForm` | string | Active text |
 | `owner` | string | Owner name |
 | `metadata` | object | Shallow merge (null values delete keys) |
 | `addBlocks` | string[] | Task IDs this task blocks |
@@ -229,7 +229,7 @@ src/
 ├── auto-clear.ts       # Auto-clearing of completed tasks (AutoClearManager)
 ├── tasks-config.ts     # Global config persistence → ~/.pi/agent/pi-tasks-config.json
 └── ui/
-    ├── task-widget.ts  # Persistent widget with status icons and spinner
+    ├── task-widget.ts  # Persistent widget with status icons and active text
     └── settings-menu.ts  # /tasks → Settings panel (SettingsList TUI component)
 ```
 
@@ -249,4 +249,4 @@ npm test            # Run unit tests
 
 ## License
 
-MIT — [tintinweb](https://github.com/tintinweb)
+MIT — [sting8k](https://github.com/sting8k)
