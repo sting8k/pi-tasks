@@ -13,7 +13,7 @@ https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 ## Features
 
 - **7 LLM-callable tools** — `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate`, `TaskOutput`, `TaskStop`, `TaskExecute` — matching Claude Code's exact tool specs and descriptions
-- **Persistent widget** — live task list above the editor with `✔`/`◼`/`◻` status icons, task numbers (`#1`, `#2`, …), strikethrough for completed tasks, star spinner (`✳✽`) for active tasks with elapsed time and token counts
+- **Persistent widget** — live task list above the editor with default and compact styles, task numbers (`#1`, `#2`, …), strikethrough for completed tasks, active-task spinner, and elapsed time
 - **System-reminder injection** — periodic `<system-reminder>` nudges injected into the upcoming LLM request (via the `context` hook, transient and never persisted) when task tools haven't been used recently (matches Claude Code's behavior exactly)
 - **Prompt guidelines** — workflow contract encoded in tool descriptions, nudging the LLM at the point of tool use
 - **Dependency management** — bidirectional `blocks`/`blockedBy` relationships with warnings for cycles, self-deps, and dangling references
@@ -39,29 +39,30 @@ pi -e ./src/index.ts
 The extension renders a persistent widget above the editor:
 
 ```
-● 4 tasks (1 done, 1 in progress, 2 open)
-  ✔ #1 Design the flux capacitor
-  ✳ #2 Acquiring plutonium… (2m 49s · ↑ 4.1k ↓ 1.2k)
-  ◻ #3 Install flux capacitor in DeLorean › blocked by #1
-  ◻ #4 Test time travel at 88 mph › blocked by #2, #3
+   Tasks · 4 tasks (1 done, 1 running, 2 open)
+   ✓ #1  Design the flux capacitor
+   ✳ #2  Acquiring plutonium… · 2m 49s
+   ○ #3  Install flux capacitor in DeLorean › blocked by #1
+   ○ #4  Test time travel at 88 mph › blocked by #2, #3
 ```
 
 | Icon | Meaning |
 |------|---------|
-| `✔` | Completed (strikethrough + dim) |
-| `◼` | In-progress (not actively executing) |
-| `◻` | Pending |
-| `✳`/`✽` | Animated star spinner — actively executing task (shows `activeForm` text, elapsed time, token counts) |
+| `✓` | Completed (strikethrough + dim) |
+| `●` | In-progress (not actively executing) |
+| `○` | Pending |
+| `✳`/`✽` | Animated star spinner — actively executing task (shows `activeForm` text and elapsed time) |
 
 ### Widget display settings
 
-How tasks are sorted and how many are shown can be configured via `/tasks` → Settings (saved to `.pi/tasks-config.json`). All defaults preserve the original behaviour.
+How tasks are sorted, styled, and limited can be configured via `/tasks` → Settings (saved to `.pi/tasks-config.json`).
 
 | Setting | Values | Default | Behaviour |
 |---------|--------|---------|-----------|
 | `sortOrder` | `id` / `status` / `recent` / `oldest` | `id` | `id` = creation order; `status` groups completed → in-progress → pending; `recent`/`oldest` = by last-updated time |
 | `maxVisible` | `5`–`100` | `10` | Caps how many task lines the widget shows (ignored when `showAll` is on) |
 | `showAll` | `true` / `false` | `false` | When `true`, every task is shown regardless of `maxVisible` |
+| `tasksWidgetStyle` | `default` / `compact` | `default` | `default` = polished multi-line list; `compact` = one-line summary that cycles active/running tasks |
 | `hiddenAt` | `bottom` / `top` | `bottom` | When the list overflows `maxVisible`, where the `… and N more` collapse happens. `top` pairs well with `sortOrder: status` to keep active work visible and fold completed tasks away |
 
 > Note: the widget's `status` order is completed-first (so finished work collapses at the top with `hiddenAt: top`), which is the reverse of the `TaskList` tool's pending-first order.

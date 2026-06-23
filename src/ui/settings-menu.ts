@@ -58,6 +58,15 @@ export async function openSettingsMenu(
         values: ["on", "off"],
       },
       {
+        id: "tasksWidgetStyle",
+        label: "Task widget style",
+        description:
+          "default: polished multi-line list. " +
+          "compact: one-line summary that cycles active/running tasks.",
+        currentValue: cfg.tasksWidgetStyle ?? "default",
+        values: ["default", "compact"],
+      },
+      {
         id: "maxVisible",
         label: "Max visible tasks in widget",
         description:
@@ -115,6 +124,10 @@ export async function openSettingsMenu(
         }
         if (id === "showAll") {
           cfg.showAll = newValue === "on";
+          saveTasksConfig(cfg);
+        }
+        if (id === "tasksWidgetStyle") {
+          cfg.tasksWidgetStyle = newValue as TasksConfig["tasksWidgetStyle"];
           saveTasksConfig(cfg);
         }
         if (id === "maxVisible") {

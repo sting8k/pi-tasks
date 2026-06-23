@@ -67,7 +67,7 @@ describe("TaskWidget", () => {
     expect(entry?.content).toBeUndefined();
   });
 
-  it("renders pending tasks with ◻ icon", () => {
+  it("renders pending tasks with ○ icon", () => {
     store.create("Do something", "Desc");
     widget.update();
 
@@ -75,28 +75,28 @@ describe("TaskWidget", () => {
     expect(lines).toHaveLength(2); // header + 1 task
     expect(lines[0]).toContain("1 tasks");
     expect(lines[0]).toContain("1 open");
-    expect(lines[1]).toContain("◻");
+    expect(lines[1]).toContain("○");
     expect(lines[1]).toContain("Do something");
   });
 
-  it("renders in-progress tasks with ◼ icon", () => {
+  it("renders in-progress tasks with ● icon", () => {
     store.create("Working on it", "Desc");
     store.update("1", { status: "in_progress" });
     widget.update();
 
     const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("◼");
+    expect(lines[1]).toContain("●");
     expect(lines[1]).toContain("Working on it");
   });
 
-  it("renders completed tasks with ✔ icon and strikethrough", () => {
+  it("renders completed tasks with ✓ icon and strikethrough", () => {
     store.create("Done task", "Desc");
     store.update("1", { status: "completed" });
     widget.update();
 
     const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("✔");
-    expect(lines[1]).toContain("~~#1 Done task~~");
+    expect(lines[1]).toContain("✓");
+    expect(lines[1]).toContain("~~Done task~~");
   });
 
   it("renders active tasks with spinner icon", () => {
@@ -107,8 +107,8 @@ describe("TaskWidget", () => {
     const lines = renderWidget(ui.state);
     // Should show activeForm text with "…" suffix
     expect(lines[1]).toContain("Processing data…");
-    // Should NOT show ◼ for active task
-    expect(lines[1]).not.toContain("◼");
+    // Should NOT show regular running bullet for active task
+    expect(lines[1]).not.toContain("●");
   });
 
   it("shows blocked-by info for pending tasks", () => {
@@ -145,7 +145,7 @@ describe("TaskWidget", () => {
     const lines = renderWidget(ui.state);
     expect(lines[0]).toContain("3 tasks");
     expect(lines[0]).toContain("1 done");
-    expect(lines[0]).toContain("1 in progress");
+    expect(lines[0]).toContain("1 running");
     expect(lines[0]).toContain("1 open");
   });
 
@@ -302,18 +302,15 @@ describe("TaskWidget", () => {
     expect(lines[3]).toContain("In progress task");
   });
 
-  it("tracks token usage for active tasks", () => {
+  it("does not render token counters for active tasks", () => {
     store.create("Active task", "Desc", "Running");
     store.update("1", { status: "in_progress" });
     widget.setActiveTask("1", true);
 
-    widget.addTokenUsage(1000, 500);
-    widget.addTokenUsage(500, 300);
-
     const lines = renderWidget(ui.state);
     const activeLine = lines.find(l => l.includes("Running…"));
-    expect(activeLine).toContain("↑ 1.5k");
-    expect(activeLine).toContain("↓ 800");
+    expect(activeLine).not.toContain("↑");
+    expect(activeLine).not.toContain("↓");
   });
 
   it("deactivates a task with setActiveTask(id, false)", () => {
@@ -327,8 +324,8 @@ describe("TaskWidget", () => {
 
     widget.setActiveTask("1", false);
     lines = renderWidget(ui.state);
-    // Should now show as regular in_progress (◼)
-    expect(lines[1]).toContain("◼");
+    // Should now show as regular in_progress (●)
+    expect(lines[1]).toContain("●");
     expect(lines[1]).not.toContain("Doing work…");
   });
 
@@ -343,8 +340,8 @@ describe("TaskWidget", () => {
 
     // Should render as completed, not active
     const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("✔");
-    expect(lines[1]).toContain("~~#1 Task~~");
+    expect(lines[1]).toContain("✓");
+    expect(lines[1]).toContain("~~Task~~");
   });
 
   it("supports multiple active tasks simultaneously", () => {
@@ -360,7 +357,27 @@ describe("TaskWidget", () => {
     expect(lines[2]).toContain("Processing B…");
   });
 
-  it("distributes token usage across all active tasks", () => {
+  it("renders compact style as a one-line summary", () => {
+    widget = new TaskWidget(store, { tasksWidgetStyle: "compact" });
+    widget.setUICtx(ui.ctx);
+    store.create("Done", "Desc");
+    store.create("Current", "Desc", "Doing");
+    store.create("Todo", "Desc");
+    store.update("1", { status: "completed" });
+    store.update("2", { status: "in_progress" });
+    widget.setActiveTask("2", true);
+
+    const lines = renderWidget(ui.state);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("Tasks");
+    expect(lines[0]).toContain("› [2] Doing");
+    expect(lines[0]).toContain("(1/3 done · 1 running)");
+  });
+
+  it("cycles compact style across active tasks", () => {
+    widget = new TaskWidget(store, { tasksWidgetStyle: "compact" });
+    widget.setUICtx(ui.ctx);
+    vi.setSystemTime(0);
     store.create("Task A", "Desc", "A");
     store.create("Task B", "Desc", "B");
     store.update("1", { status: "in_progress" });
@@ -368,12 +385,26 @@ describe("TaskWidget", () => {
     widget.setActiveTask("1", true);
     widget.setActiveTask("2", true);
 
-    widget.addTokenUsage(100, 50);
+    let lines = renderWidget(ui.state);
+    expect(lines[0]).toContain("› [1] A");
 
-    const lines = renderWidget(ui.state);
-    // Both tasks should have the same token counts
-    expect(lines[1]).toContain("↑ 100");
-    expect(lines[2]).toContain("↑ 100");
+    vi.setSystemTime(3000);
+    widget.update();
+    lines = renderWidget(ui.state);
+    expect(lines[0]).toContain("› [2] B");
+  });
+
+  it("keeps a timer for compact cycling across non-active running tasks", () => {
+    widget = new TaskWidget(store, { tasksWidgetStyle: "compact" });
+    widget.setUICtx(ui.ctx);
+    store.create("Task A", "Desc");
+    store.create("Task B", "Desc");
+    store.update("1", { status: "in_progress" });
+    store.update("2", { status: "in_progress" });
+
+    widget.update();
+
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
   });
 
   it("dispose clears widget and timer", () => {
@@ -399,7 +430,7 @@ describe("TaskWidget", () => {
     store.update("1", { status: "in_progress" });
     widget.setActiveTask("1", true);
 
-    // No addTokenUsage calls — tokens stay at 0
+    // Token counters are intentionally no longer rendered.
     vi.advanceTimersByTime(5000);
     widget.update();
 
@@ -410,24 +441,23 @@ describe("TaskWidget", () => {
     expect(activeLine).not.toContain("↓");
   });
 
-  it("cleans up metrics when stale active IDs are pruned", () => {
+  it("cleans up elapsed metrics when stale active IDs are pruned", () => {
     store.create("Task", "Desc", "Running");
     store.update("1", { status: "in_progress" });
     widget.setActiveTask("1", true);
-    widget.addTokenUsage(100, 50);
 
     // Delete task externally
     store.update("1", { status: "deleted" });
     widget.update();
 
-    // Reactivate with same ID (new task) — should get fresh metrics
+    // Reactivate a new task — should get fresh metrics
     store.create("Task 2", "Desc", "Running");  // ID 2
     store.update("2", { status: "in_progress" });
     widget.setActiveTask("2", true);
 
     const lines = renderWidget(ui.state);
-    // Should not carry over old tokens
-    expect(lines[1]).not.toContain("↑ 100");
+    expect(lines[1]).toContain("Running…");
+    expect(lines[1]).toContain("0s");
   });
 
   it("indents task lines under header", () => {
@@ -435,8 +465,8 @@ describe("TaskWidget", () => {
     widget.update();
 
     const lines = renderWidget(ui.state);
-    // Task line should start with 2 spaces
-    expect(lines[1]).toMatch(/^\s{2}/);
+    // Task line should start with the shared widget row prefix
+    expect(lines[1]).toMatch(/^\s{3}/);
   });
 
   it("widget is placed aboveEditor", () => {
@@ -499,7 +529,7 @@ describe("formatDuration (via widget rendering)", () => {
     widget.update();
 
     const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("2h)");
+    expect(lines[1]).toContain("2h");
   });
 
   it("shows minutes and seconds", () => {
@@ -514,29 +544,4 @@ describe("formatDuration (via widget rendering)", () => {
     expect(lines[1]).toContain("2m 49s");
   });
 
-  it("formats small token counts without k suffix", () => {
-    store.create("Small", "Desc", "Working");
-    store.update("1", { status: "in_progress" });
-    widget.setActiveTask("1", true);
-
-    widget.addTokenUsage(500, 200);
-    widget.update();
-
-    const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("↑ 500");
-    expect(lines[1]).toContain("↓ 200");
-  });
-
-  it("formats token counts with k suffix and removes .0", () => {
-    store.create("Large", "Desc", "Working");
-    store.update("1", { status: "in_progress" });
-    widget.setActiveTask("1", true);
-
-    widget.addTokenUsage(2000, 4100);
-    widget.update();
-
-    const lines = renderWidget(ui.state);
-    expect(lines[1]).toContain("↑ 2k");    // 2000 → "2k" (not "2.0k")
-    expect(lines[1]).toContain("↓ 4.1k");  // 4100 → "4.1k"
-  });
 });
