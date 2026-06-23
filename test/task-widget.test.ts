@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { TaskStore } from "../src/task-store.js";
 import { TaskWidget, type Theme, type UICtx } from "../src/ui/task-widget.js";
 
@@ -118,6 +119,20 @@ describe("TaskWidget", () => {
     const lines = renderWidget(ui.state, 80, 24);
 
     expect(lines[1]).toContain("This is a long task name that should fit");
+  });
+
+  it("preserves default row suffix while truncating only the task body", () => {
+    store.create("Blocker", "Desc");
+    store.create("This pending task has a very long title that should be truncated before the suffix", "Desc");
+    store.update("2", { addBlockedBy: ["1"] });
+    widget.update();
+
+    const line = renderWidget(ui.state, 54).find(l => l.includes("blocked by #1"));
+
+    expect(line).toBeDefined();
+    expect(line).toContain("…");
+    expect(line).toContain(" › blocked by #1");
+    expect(visibleWidth(line!)).toBeLessThanOrEqual(54);
   });
 
   it("shows blocked-by info for pending tasks", () => {
@@ -381,6 +396,20 @@ describe("TaskWidget", () => {
     expect(lines[0]).toContain("Tasks");
     expect(lines[0]).toContain("› [2] Doing");
     expect(lines[0]).toContain("(1/3 done · 1 running)");
+  });
+
+  it("preserves compact tail while truncating only the current task body", () => {
+    widget = new TaskWidget(store, { tasksWidgetStyle: "compact" });
+    widget.setUICtx(ui.ctx);
+    store.create("Current", "Desc", "Doing a very long active task label that should be truncated before the status tail");
+    store.update("1", { status: "in_progress" });
+    widget.setActiveTask("1", true);
+
+    const line = renderWidget(ui.state, 64)[0];
+
+    expect(line).toContain("…");
+    expect(line).toContain("(0/1 done · 1 running)");
+    expect(visibleWidth(line)).toBeLessThanOrEqual(64);
   });
 
   it("cycles compact style across active tasks", () => {

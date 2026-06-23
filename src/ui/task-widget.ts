@@ -6,7 +6,7 @@
  * - compact: single-line summary that cycles through active/running tasks
  */
 
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { TaskStore } from "../task-store.js";
 import type { TasksConfig } from "../tasks-config.js";
 import type { Task } from "../types.js";
@@ -148,12 +148,12 @@ export class TaskWidget {
 
     if (tasks.length === 0) return [];
     if ((this.config.tasksWidgetStyle ?? "default") === "compact") {
-      return this.renderCompactWidget(tasks, theme, truncate);
+      return this.renderCompactWidget(tasks, theme, truncate, width);
     }
-    return this.renderDefaultWidget(tasks, theme, truncate);
+    return this.renderDefaultWidget(tasks, theme, truncate, width);
   }
 
-  private renderDefaultWidget(tasks: Task[], theme: Theme, truncate: (line: string) => string): string[] {
+  private renderDefaultWidget(tasks: Task[], theme: Theme, truncate: (line: string) => string, width: number): string[] {
     const counts = countTasks(tasks);
     const lines: string[] = [
       truncate(`${WIDGET_ROW_PREFIX}${theme.fg("accent", theme.bold("Tasks"))}${theme.fg("dim", ` · ${formatStatusText(counts)}`)}`),
@@ -171,13 +171,13 @@ export class TaskWidget {
       : undefined;
 
     if (overflowLine && hiddenAt === "top") lines.push(overflowLine);
-    for (const task of visible) lines.push(truncate(this.renderTaskRow(task, theme, idWidth)));
+    for (const task of visible) lines.push(this.renderTaskRow(task, theme, idWidth, width));
     if (overflowLine && hiddenAt !== "top") lines.push(overflowLine);
 
     return lines;
   }
 
-  private renderCompactWidget(tasks: Task[], theme: Theme, truncate: (line: string) => string): string[] {
+  private renderCompactWidget(tasks: Task[], theme: Theme, truncate: (line: string) => string, width: number): string[] {
     const counts = countTasks(tasks);
     const label = `${WIDGET_ROW_PREFIX}${theme.fg("accent", "●")} ${theme.fg("accent", theme.bold("Tasks"))}`;
     const current = this.pickCompactTask(tasks);
@@ -199,8 +199,9 @@ export class TaskWidget {
 
     const marker = theme.fg("accent", theme.bold("› "));
     const id = theme.fg("dim", `[${current.id}] `);
-    const body = this.compactTaskText(current, theme);
-    return [truncate(`${label} ${marker}${id}${body}${tail}`)];
+    const { body, meta } = this.compactTaskParts(current, theme);
+    const fixed = `${label} ${marker}${id}`;
+    return [this.renderBudgetedLine(fixed, body, `${meta}${tail}`, width)];
   }
 
   private pickCompactTask(tasks: Task[]): Task | undefined {
@@ -215,19 +216,27 @@ export class TaskWidget {
     return activeCount > 0 ? activeCount : tasks.filter(task => task.status === "in_progress").length;
   }
 
-  private compactTaskText(task: Task, theme: Theme): string {
+  private compactTaskParts(task: Task, theme: Theme): { body: string; meta: string } {
     const base = this.isActive(task) ? (task.activeForm || task.subject) : task.subject;
-    const text = base.replace(/…$/, "");
+    const body = base.replace(/…$/, "");
     const elapsed = this.elapsedText(task);
-    return elapsed ? `${text}${theme.fg("dim", ` · ${elapsed}`)}` : text;
+    return { body, meta: elapsed ? theme.fg("dim", ` · ${elapsed}`) : "" };
   }
 
-  private renderTaskRow(task: Task, theme: Theme, idWidth: number): string {
+  private renderTaskRow(task: Task, theme: Theme, idWidth: number, width: number): string {
     const id = theme.fg("dim", `#${task.id.padStart(idWidth)}`);
     const icon = this.renderTaskIcon(task, theme);
-    const text = this.renderTaskText(task, theme);
-    const suffix = this.renderBlockedSuffix(task, theme);
-    return `${WIDGET_ROW_PREFIX}${icon} ${id}  ${text}${suffix}`;
+    const fixed = `${WIDGET_ROW_PREFIX}${icon} ${id}  `;
+    const { body, meta } = this.renderTaskText(task, theme);
+    const suffix = `${meta}${this.renderBlockedSuffix(task, theme)}`;
+    return this.renderBudgetedLine(fixed, body, suffix, width);
+  }
+
+  private renderBudgetedLine(fixed: string, body: string, suffix: string, width: number): string {
+    const bodyBudget = width - visibleWidth(fixed) - visibleWidth(suffix);
+    if (bodyBudget < 1) return truncateToWidth(`${fixed}${suffix}`, width, "…");
+    const renderedBody = visibleWidth(body) > bodyBudget ? truncateToWidth(body, bodyBudget, "…") : body;
+    return `${fixed}${renderedBody}${suffix}`;
   }
 
   private renderTaskIcon(task: Task, theme: Theme): string {
@@ -236,14 +245,16 @@ export class TaskWidget {
     return theme.fg("accent", "●");
   }
 
-  private renderTaskText(task: Task, theme: Theme): string {
-    if (task.status === "completed") return theme.fg("dim", theme.strikethrough(task.subject));
+  private renderTaskText(task: Task, theme: Theme): { body: string; meta: string } {
+    if (task.status === "completed") return { body: theme.fg("dim", theme.strikethrough(task.subject)), meta: "" };
     if (this.isActive(task)) {
       const elapsed = this.elapsedText(task);
-      const time = elapsed ? theme.fg("dim", ` · ${elapsed}`) : "";
-      return `${theme.fg("accent", `${task.activeForm || task.subject}…`)}${time}`;
+      return {
+        body: theme.fg("accent", `${task.activeForm || task.subject}…`),
+        meta: elapsed ? theme.fg("dim", ` · ${elapsed}`) : "",
+      };
     }
-    return task.subject;
+    return { body: task.subject, meta: "" };
   }
 
   private renderBlockedSuffix(task: Task, theme: Theme): string {
