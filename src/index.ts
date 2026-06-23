@@ -6,8 +6,6 @@
  *   TaskList     — List all tasks with status
  *   TaskGet      — Get full task details
  *   TaskUpdate   — Update task fields, status, dependencies
- *   TaskOutput   — Get output from a background task process
- *   TaskStop     — Stop a running background task process
  *
  * Commands:
  *   /tasks       — Interactive task management menu
@@ -17,7 +15,6 @@ import { join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { AutoClearManager } from "./auto-clear.js";
-import { ProcessTracker } from "./process-tracker.js";
 import {
   type CadenceConfig,
   createCadenceState,
@@ -39,7 +36,7 @@ function textResult(msg: string) {
 }
 
 /** Task tool names — used to detect task tool usage for reminder suppression. */
-const TASK_TOOL_NAMES = new Set(["TaskCreate", "TaskList", "TaskGet", "TaskUpdate", "TaskOutput", "TaskStop"]);
+const TASK_TOOL_NAMES = new Set(["TaskCreate", "TaskList", "TaskGet", "TaskUpdate"]);
 
 /** How many turns without task tool usage before injecting a reminder. */
 const REMINDER_INTERVAL = 4;
@@ -74,7 +71,6 @@ export default function (pi: ExtensionAPI) {
   // For project scope (or env override), create store immediately.
   // For session scope, start with in-memory and upgrade once we have the session ID.
   let store = new TaskStore(resolveStorePath());
-  const tracker = new ProcessTracker();
   const widget = new TaskWidget(store, cfg);
 
   const autoClear = new AutoClearManager(() => store, () => cfg.autoClearCompleted ?? "on_list_complete", AUTO_CLEAR_DELAY);
@@ -549,87 +545,6 @@ Set up task dependencies:
     },
   });
 
-  // ──────────────────────────────────────────────────
-  // Tool 5: TaskOutput
-  // ──────────────────────────────────────────────────
-
-  pi.registerTool({
-    name: "TaskOutput",
-    label: "TaskOutput",
-    description: `- Retrieves output from a running or completed background process
-- Takes a task_id parameter identifying the task
-- Returns the process output along with status information
-- Use block=true (default) to wait for completion
-- Use block=false for non-blocking check of current status
-- Task IDs can be found using the /tasks command`,
-    parameters: Type.Object({
-      task_id: Type.String({ description: "The task ID to get output from" }),
-      block: Type.Boolean({ description: "Whether to wait for completion", default: true }),
-      timeout: Type.Number({ description: "Max wait time in ms", default: 30000, minimum: 0, maximum: 600000 }),
-    }),
-
-    async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
-      const { task_id, block, timeout } = params;
-
-      const processOutput = tracker.getOutput(task_id);
-      if (!processOutput) {
-        if (!store.get(task_id)) throw new Error(`No task found with ID ${task_id}`);
-        throw new Error(`No background process for task ${task_id}`);
-      }
-
-      if (block && processOutput.status === "running") {
-        const result = await tracker.waitForCompletion(task_id, timeout ?? 30000, signal ?? undefined);
-        if (result) {
-          return textResult(
-            `Task #${task_id} (${result.status})${result.exitCode !== undefined ? ` exit code: ${result.exitCode}` : ""}\n\n${result.output}`,
-          );
-        }
-      }
-
-      return textResult(
-        `Task #${task_id} (${processOutput.status})${processOutput.exitCode !== undefined ? ` exit code: ${processOutput.exitCode}` : ""}\n\n${processOutput.output}`,
-      );
-    },
-  });
-
-  // ──────────────────────────────────────────────────
-  // Tool 6: TaskStop
-  // ──────────────────────────────────────────────────
-
-  pi.registerTool({
-    name: "TaskStop",
-    label: "TaskStop",
-    description: `
-- Stops a running background task by its ID
-- Takes a task_id parameter identifying the task to stop
-- Returns a success or failure status
-- Use this tool when you need to terminate a long-running task`,
-    parameters: Type.Object({
-      task_id: Type.Optional(Type.String({ description: "The ID of the background task to stop" })),
-      shell_id: Type.Optional(Type.String({ description: "Deprecated: use task_id instead" })),
-    }),
-
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-      const taskId = params.task_id ?? params.shell_id;
-      if (!taskId) throw new Error("task_id is required");
-
-      const stopped = await tracker.stop(taskId);
-      if (!stopped) {
-        throw new Error(`No running background process for task ${taskId}`);
-      }
-
-      store.update(taskId, { status: "completed" });
-      autoClear.trackCompletion(taskId, cadence.currentTurn);
-      widget.setActiveTask(taskId, false);
-      widget.update();
-      return textResult(`Task #${taskId} stopped successfully`);
-    },
-  });
-
-
-  // ──────────────────────────────────────────────────
-  // /tasks command
-  // ──────────────────────────────────────────────────
 
   pi.registerCommand("tasks", {
     description: "Manage tasks — view, create, clear completed",

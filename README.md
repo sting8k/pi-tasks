@@ -12,14 +12,13 @@ https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 
 ## Features
 
-- **6 LLM-callable tools** — `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate`, `TaskOutput`, `TaskStop` — matching Claude Code-style task workflow specs and descriptions
+- **4 LLM-callable tools** — `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate` — matching Claude Code-style task workflow specs and descriptions
 - **Persistent widget** — live task list above the editor with default and compact styles, task numbers (`#1`, `#2`, …), strikethrough for completed tasks, active-task spinner, and elapsed time
 - **System-reminder injection** — periodic `<system-reminder>` nudges injected into the upcoming LLM request (via the `context` hook, transient and never persisted) when task tools haven't been used recently (matches Claude Code's behavior exactly)
 - **Prompt guidelines** — workflow contract encoded in tool descriptions, nudging the LLM at the point of tool use
 - **Dependency management** — bidirectional `blocks`/`blockedBy` relationships with warnings for cycles, self-deps, and dangling references
 - **Shared task lists** — multiple pi sessions can share a file-backed task list for team coordination
 - **File locking** — concurrent access is safe when multiple sessions share a task list
-- **Background process tracking** — track spawned processes with output buffering, blocking wait, and graceful stop
 
 ## Install
 
@@ -138,24 +137,6 @@ Setting `status: "deleted"` permanently removes the task.
 
 Dependencies are bidirectional: `addBlocks: ["3"]` on task 1 also adds `blockedBy: ["1"]` to task 3.
 
-### `TaskOutput`
-
-Retrieve output from a background task process.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `task_id` | string | — | Task ID (required) |
-| `block` | boolean | `true` | Wait for completion |
-| `timeout` | number | `30000` | Max wait time in ms (max 600000) |
-
-### `TaskStop`
-
-Stop a running background task process. Sends SIGTERM, waits 5 seconds, then SIGKILL.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `task_id` | string | Task ID to stop |
-
 ## Task Lifecycle
 
 ```
@@ -242,20 +223,15 @@ Tasks
 
 ```
 src/
-├── index.ts            # Extension entry: 6 tools + /tasks command + widget
-├── types.ts            # Task, TaskStatus, BackgroundProcess types
+├── index.ts            # Extension entry: 4 tools + /tasks command + widget
+├── types.ts            # Task and TaskStatus types
 ├── task-store.ts       # File-backed store with CRUD, dependencies, locking
 ├── auto-clear.ts       # Auto-clearing of completed tasks (AutoClearManager)
 ├── tasks-config.ts     # Global config persistence → ~/.pi/agent/pi-tasks-config.json
-├── process-tracker.ts  # Background process output buffering and stop
 └── ui/
     ├── task-widget.ts  # Persistent widget with status icons and spinner
     └── settings-menu.ts  # /tasks → Settings panel (SettingsList TUI component)
 ```
-
-## Future Work
-
-- **Background Bash auto-task creation** — Claude Code auto-creates tasks when `Bash` runs with `run_in_background: true`. Pi's bash tool currently lacks a `run_in_background` parameter (only `command` + `timeout`), so there's nothing to hook into. Once pi adds background execution support to its bash tool, we can use the `tool_call` event to detect it and auto-create tasks via `TaskStore`/`ProcessTracker`.
 
 ## Harness
 
