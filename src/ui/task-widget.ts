@@ -240,15 +240,11 @@ export class TaskWidget {
   private renderTaskText(task: Task, theme: Theme): string {
     if (task.status === "completed") return theme.fg("dim", theme.strikethrough(task.subject));
     if (this.isActive(task)) {
-      const agentLabel = task.metadata?.agentId ? ` (agent ${task.metadata.agentId.slice(0, 5)})` : "";
       const elapsed = this.elapsedText(task);
       const time = elapsed ? theme.fg("dim", ` · ${elapsed}`) : "";
-      return `${theme.fg("accent", `${task.activeForm || task.subject}${agentLabel}…`)}${time}`;
+      return `${theme.fg("accent", `${task.activeForm || task.subject}…`)}${time}`;
     }
-    const agentSuffix = task.status === "in_progress" && task.metadata?.agentId
-      ? theme.fg("dim", ` (agent ${task.metadata.agentId.slice(0, 5)})`)
-      : "";
-    return `${task.subject}${agentSuffix}`;
+    return task.subject;
   }
 
   private renderBlockedSuffix(task: Task, theme: Theme): string {
