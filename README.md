@@ -328,6 +328,12 @@ src/
 
 - **Background Bash auto-task creation** — Claude Code auto-creates tasks when `Bash` runs with `run_in_background: true`. Pi's bash tool currently lacks a `run_in_background` parameter (only `command` + `timeout`), so there's nothing to hook into. Once pi adds background execution support to its bash tool, we can use the `tool_call` event to detect it and auto-create tasks via `TaskStore`/`ProcessTracker`.
 
+## Harness
+
+> For agent/human workflow guidance, start with [`HARNESS.md`](./HARNESS.md).
+
+This repo includes Harness docs and CLI conventions for scoped intake, verification, and traceable changes. The canonical operating docs live under `docs/`; the root `HARNESS.md` is the lightweight entrypoint.
+
 ## Development
 
 ```bash
