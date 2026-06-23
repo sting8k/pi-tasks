@@ -210,10 +210,8 @@ The `autoClearCompleted` setting controls automatic cleanup of completed tasks:
 | Mode | Behaviour |
 |------|-----------|
 | `never` | Completed tasks stay visible until manually cleared via `/tasks` → Clear completed |
-| `on_list_complete` **(default)** | Cleared after all tasks are done and a few idle turns pass |
-| `on_task_complete` | Each completed task cleared individually after a few turns |
-
-Both auto-clear modes use a turn-based delay for non-jarring UX — tasks linger briefly so you see the completion before they disappear.
+| `on_list_complete` **(default)** | Cleared immediately after all tasks are done |
+| `on_task_complete` | Each completed task cleared individually as soon as it completes |
 
 Settings (`taskScope`, `autoCascade`, `autoClearCompleted`, plus the [widget display settings](#widget-display-settings) `sortOrder` / `maxVisible` / `showAll` / `hiddenAt`) are saved to `<cwd>/.pi/tasks-config.json`.
 
@@ -316,7 +314,7 @@ src/
 ├── index.ts            # Extension entry: 7 tools + /tasks command + widget + subagent integration
 ├── types.ts            # Task, TaskStatus, BackgroundProcess types
 ├── task-store.ts       # File-backed store with CRUD, dependencies, locking
-├── auto-clear.ts       # Turn-based auto-clearing of completed tasks (AutoClearManager)
+├── auto-clear.ts       # Auto-clearing of completed tasks (AutoClearManager)
 ├── tasks-config.ts     # Config persistence (taskScope, autoCascade, autoClearCompleted) → .pi/tasks-config.json
 ├── process-tracker.ts  # Background process output buffering and stop
 └── ui/

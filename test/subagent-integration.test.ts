@@ -326,7 +326,7 @@ describe("Completion listener", () => {
     rpc.unsub();
   });
 
-  it("marks task completed on subagents:completed event", async () => {
+  it("auto-clears task on subagents:completed event", async () => {
     await mock.executeTool("TaskCreate", {
       subject: "Agent task",
       description: "Desc",
@@ -338,7 +338,7 @@ describe("Completion listener", () => {
     mock.emitEvent("subagents:completed", { id: "agent-1" });
 
     const result = await mock.executeTool("TaskGet", { taskId: "1" });
-    expect(result.content[0].text).toContain("Status: completed");
+    expect(result.content[0].text).toContain("Task not found");
   });
 
   it("reverts task to pending on subagents:failed event", async () => {

@@ -52,8 +52,8 @@ const TASK_TOOL_NAMES = new Set(["TaskCreate", "TaskList", "TaskGet", "TaskUpdat
 /** How many turns without task tool usage before injecting a reminder. */
 const REMINDER_INTERVAL = 4;
 
-/** How many turns completed tasks linger before auto-clearing. */
-const AUTO_CLEAR_DELAY = 4;
+/** Completed tasks are auto-cleared immediately when enabled. */
+const AUTO_CLEAR_DELAY = 0;
 
 const SYSTEM_REMINDER = `<system-reminder>
 The task tools haven't been used recently. If you're working on tasks that would benefit from tracking progress, consider using TaskCreate to add new tasks and TaskUpdate to update task status (set to in_progress when starting, completed when done). Also consider cleaning up the task list if it has become stale. Only use these if relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user
@@ -1109,7 +1109,7 @@ Set up task dependencies:
       };
 
       const settingsMenu = (): Promise<void> =>
-        openSettingsMenu(ui, cfg, mainMenu, AUTO_CLEAR_DELAY);
+        openSettingsMenu(ui, cfg, mainMenu);
 
       const createTask = async (): Promise<void> => {
         const subject = await ui.input("Task subject");

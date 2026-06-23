@@ -25,7 +25,6 @@ export async function openSettingsMenu(
   ui: SettingsUI,
   cfg: TasksConfig,
   onBack: () => Promise<void>,
-  clearDelayTurns: number,
 ): Promise<void> {
   await ui.custom((_tui, theme, _kb, done) => {
     const items: SettingItem[] = [
@@ -90,9 +89,8 @@ export async function openSettingsMenu(
         label: "Auto-clear completed tasks",
         description:
           "never: completed tasks stay visible until manually cleared. " +
-          "on_list_complete: cleared automatically after all tasks are done. " +
-          "on_task_complete: each task cleared shortly after it completes. " +
-          `Clearing lags ~${clearDelayTurns} turns.`,
+          "on_list_complete: cleared immediately after all tasks are done. " +
+          "on_task_complete: each task is cleared immediately after it completes.",
         currentValue: cfg.autoClearCompleted ?? "on_list_complete",
         values: ["never", "on_list_complete", "on_task_complete"],
       },

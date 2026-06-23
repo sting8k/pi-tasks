@@ -1,11 +1,11 @@
 /**
- * auto-clear.ts — Turn-based auto-clearing of completed tasks.
+ * auto-clear.ts — Auto-clearing of completed tasks.
  *
  * Two modes:
- * - "on_task_complete": each completed task gets its own REMINDER_INTERVAL countdown, deleted individually
- * - "on_list_complete": countdown starts when ALL tasks are completed, cleared as a batch
+ * - "on_task_complete": each completed task is deleted individually
+ * - "on_list_complete": completed tasks are cleared as a batch when ALL tasks are completed
  *
- * Both use the same turn delay (REMINDER_INTERVAL) for consistency.
+ * By default, clearing happens immediately when completion is tracked.
  */
 
 import type { TaskStore } from "./task-store.js";
@@ -13,7 +13,7 @@ import type { TaskStore } from "./task-store.js";
 export type AutoClearMode = "never" | "on_list_complete" | "on_task_complete";
 
 export class AutoClearManager {
-  /** Per-task: turn when task was marked completed ("on_task_complete" mode). */
+  /** Per-task: turn when task was marked completed (only used when a delay is configured). */
   private completedAtTurn = new Map<string, number>();
   /** Turn when ALL tasks became completed ("on_list_complete" mode). */
   private allCompletedAtTurn: number | null = null;
@@ -21,8 +21,8 @@ export class AutoClearManager {
   constructor(
     private getStore: () => TaskStore,
     private getMode: () => AutoClearMode,
-    /** How many turns completed tasks linger before auto-clearing. */
-    private clearDelayTurns = 4,
+    /** How many turns completed tasks linger before auto-clearing. Defaults to no delay. */
+    private clearDelayTurns = 0,
   ) {}
 
   /** Record a task completion. Call AFTER cascade logic. */
@@ -35,6 +35,8 @@ export class AutoClearManager {
     } else if (mode === "on_list_complete") {
       this.checkAllCompleted(currentTurn);
     }
+
+    if (this.clearDelayTurns <= 0) this.onTurnStart(currentTurn);
   }
 
   /** Check if all tasks are completed and start/reset the batch countdown. */
@@ -59,7 +61,7 @@ export class AutoClearManager {
   }
 
   /**
-   * Called on each turn start. Deletes tasks whose linger period has expired.
+   * Called on each turn start. Deletes tasks that are eligible for auto-clear.
    * Returns true if any tasks were cleared.
    */
   onTurnStart(currentTurn: number): boolean {

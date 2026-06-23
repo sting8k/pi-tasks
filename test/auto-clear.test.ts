@@ -3,13 +3,42 @@ import type { AutoClearMode } from "../src/auto-clear.js";
 import { AutoClearManager } from "../src/auto-clear.js";
 import { TaskStore } from "../src/task-store.js";
 
+describe("auto-clear: default no-delay mode", () => {
+  it("clears a completed task immediately when tracked", () => {
+    const store = new TaskStore();
+    const manager = new AutoClearManager(() => store, () => "on_task_complete");
+
+    store.create("Task", "Desc");
+    store.update("1", { status: "completed" });
+    manager.trackCompletion("1", 1);
+
+    expect(store.get("1")).toBeUndefined();
+  });
+
+  it("clears the completed list immediately when all tasks are done", () => {
+    const store = new TaskStore();
+    const manager = new AutoClearManager(() => store, () => "on_list_complete");
+
+    store.create("A", "Desc");
+    store.create("B", "Desc");
+    store.update("1", { status: "completed" });
+    manager.trackCompletion("1", 1);
+    expect(store.list()).toHaveLength(2);
+
+    store.update("2", { status: "completed" });
+    manager.trackCompletion("2", 1);
+
+    expect(store.list()).toHaveLength(0);
+  });
+});
+
 describe("auto-clear: on_task_complete mode", () => {
   let store: TaskStore;
   let manager: AutoClearManager;
 
   beforeEach(() => {
     store = new TaskStore();
-    manager = new AutoClearManager(() => store, () => "on_task_complete");
+    manager = new AutoClearManager(() => store, () => "on_task_complete", 4);
   });
 
   it("does not clear completed task before REMINDER_INTERVAL turns", () => {
@@ -98,7 +127,7 @@ describe("auto-clear: on_list_complete mode", () => {
 
   beforeEach(() => {
     store = new TaskStore();
-    manager = new AutoClearManager(() => store, () => "on_list_complete");
+    manager = new AutoClearManager(() => store, () => "on_list_complete", 4);
   });
 
   it("does not clear when some tasks are still pending", () => {
@@ -274,7 +303,7 @@ describe("auto-clear: store getter (session switch)", () => {
 describe("auto-clear: reset (new session)", () => {
   it("reset clears per-task tracking so old completions don't fire", () => {
     const store = new TaskStore();
-    const manager = new AutoClearManager(() => store, () => "on_task_complete");
+    const manager = new AutoClearManager(() => store, () => "on_task_complete", 4);
 
     store.create("Task", "Desc");
     store.update("1", { status: "completed" });
@@ -290,7 +319,7 @@ describe("auto-clear: reset (new session)", () => {
 
   it("reset clears batch countdown so old all-completed state doesn't fire", () => {
     const store = new TaskStore();
-    const manager = new AutoClearManager(() => store, () => "on_list_complete");
+    const manager = new AutoClearManager(() => store, () => "on_list_complete", 4);
 
     store.create("Task", "Desc");
     store.update("1", { status: "completed" });
@@ -306,7 +335,7 @@ describe("auto-clear: reset (new session)", () => {
 
   it("tracking works normally after reset", () => {
     const store = new TaskStore();
-    const manager = new AutoClearManager(() => store, () => "on_task_complete");
+    const manager = new AutoClearManager(() => store, () => "on_task_complete", 4);
 
     store.create("Task", "Desc");
     store.update("1", { status: "completed" });
