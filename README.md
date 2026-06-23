@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 ## Install
 
 ```bash
-pi install npm:@sting8k/pi-tasks
+pi install git:github.com/sting8k/pi-tasks
 ```
 
 Or load directly for development:
