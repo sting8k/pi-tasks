@@ -34,13 +34,13 @@ function mockUICtx() {
 }
 
 /** Render the widget and return its lines. */
-function renderWidget(state: ReturnType<typeof mockUICtx>["state"]): string[] {
+function renderWidget(state: ReturnType<typeof mockUICtx>["state"], renderWidth?: number, terminalColumns = 200): string[] {
   const entry = state.widgets.get("tasks");
   if (!entry?.content) return [];
   const theme = mockTheme();
-  const tui = { terminal: { columns: 200 }, requestRender() {} };
+  const tui = { terminal: { columns: terminalColumns }, requestRender() {} };
   const result = entry.content(tui, theme);
-  return result.render();
+  return result.render(renderWidth);
 }
 
 describe("TaskWidget", () => {
@@ -99,7 +99,7 @@ describe("TaskWidget", () => {
     expect(lines[1]).toContain("~~Done task~~");
   });
 
-  it("renders active tasks with spinner icon", () => {
+  it("renders active tasks with stable running icon", () => {
     store.create("Running thing", "Desc", "Processing data");
     store.update("1", { status: "in_progress" });
     widget.setActiveTask("1", true);
@@ -107,8 +107,17 @@ describe("TaskWidget", () => {
     const lines = renderWidget(ui.state);
     // Should show activeForm text with "…" suffix
     expect(lines[1]).toContain("Processing data…");
-    // Should NOT show regular running bullet for active task
-    expect(lines[1]).not.toContain("●");
+    // Active task keeps the same leading icon as in-progress tasks to avoid row-icon flicker.
+    expect(lines[1]).toContain("●");
+  });
+
+  it("uses render width over terminal columns when truncating default rows", () => {
+    store.create("This is a long task name that should fit with the render width", "Desc");
+    widget.update();
+
+    const lines = renderWidget(ui.state, 80, 24);
+
+    expect(lines[1]).toContain("This is a long task name that should fit");
   });
 
   it("shows blocked-by info for pending tasks", () => {

@@ -35,13 +35,11 @@ export type UICtx = {
   setStatus(key: string, text: string | undefined): void;
   setWidget(
     key: string,
-    content: undefined | ((tui: any, theme: Theme) => { render(): string[]; invalidate(): void }),
+    content: undefined | ((tui: any, theme: Theme) => { render(width?: unknown): string[]; invalidate(): void }),
     options?: { placement?: "aboveEditor" | "belowEditor" },
   ): void;
 };
 
-/** Star spinner frames for animated active task indicator. */
-const SPINNER = ["✳", "✴", "✵", "✶", "✷", "✸", "✹", "✺", "✻", "✼", "✽"];
 const DEFAULT_MAX_VISIBLE_TASKS = 10;
 const WIDGET_ROW_PREFIX = "   ";
 const TASK_CYCLE_MS = 3000;
@@ -95,9 +93,8 @@ function taskCycleBucket(now = Date.now()): number {
 
 export class TaskWidget {
   private uiCtx: UICtx | undefined;
-  private widgetFrame = 0;
   private widgetInterval: ReturnType<typeof setInterval> | undefined;
-  /** IDs of tasks currently being actively executed (show spinner). */
+  /** IDs of tasks currently being actively executed (show active-form text and elapsed time). */
   private activeTaskIds = new Set<string>();
   /** Per-task runtime metrics keyed by task ID. */
   private metrics = new Map<string, TaskMetrics>();
@@ -141,10 +138,12 @@ export class TaskWidget {
   }
 
   /** Build widget lines from current live state. Called from the render callback. */
-  private renderWidget(tui: any, theme: Theme): string[] {
+  private renderWidget(tui: any, theme: Theme, renderWidth?: unknown): string[] {
     const sortOrder = this.config.sortOrder ?? "id";
     const tasks = this.store.list(sortOrder);
-    const width = tui.terminal.columns;
+    const width = typeof renderWidth === "number" && Number.isFinite(renderWidth)
+      ? Math.max(1, Math.floor(renderWidth))
+      : Math.max(1, Math.floor(tui.terminal?.columns ?? 80));
     const truncate = (line: string) => truncateToWidth(line, width);
 
     if (tasks.length === 0) return [];
@@ -234,7 +233,7 @@ export class TaskWidget {
   private renderTaskIcon(task: Task, theme: Theme): string {
     if (task.status === "completed") return theme.fg("success", "✓");
     if (task.status === "pending") return theme.fg("dim", "○");
-    return theme.fg("accent", this.isActive(task) ? SPINNER[this.widgetFrame % SPINNER.length] : "●");
+    return theme.fg("accent", "●");
   }
 
   private renderTaskText(task: Task, theme: Theme): string {
@@ -297,23 +296,21 @@ export class TaskWidget {
       }
     }
 
-    // Check if any task needs animation or compact cycling.
-    const hasActiveSpinner = tasks.some(t => this.activeTaskIds.has(t.id) && t.status === "in_progress");
+    // Check if any task needs elapsed-time updates or compact cycling.
+    const hasActiveElapsed = tasks.some(t => this.activeTaskIds.has(t.id) && t.status === "in_progress");
     const needsCompactCycle = (this.config.tasksWidgetStyle ?? "default") === "compact" && this.compactCycleCandidateCount(tasks) > 1;
-    if (hasActiveSpinner || needsCompactCycle) {
+    if (hasActiveElapsed || needsCompactCycle) {
       this.ensureTimer();
     } else if (this.widgetInterval) {
       clearInterval(this.widgetInterval);
       this.widgetInterval = undefined;
     }
 
-    this.widgetFrame++;
-
     // Transition: hidden → visible — register widget callback once
     if (!this.widgetRegistered) {
       this.uiCtx.setWidget("tasks", (tui, theme) => {
         this.tui = tui;
-        return { render: () => this.renderWidget(tui, theme), invalidate: () => {} };
+        return { render: (width?: unknown) => this.renderWidget(tui, theme, width), invalidate: () => {} };
       }, { placement: "aboveEditor" });
       this.widgetRegistered = true;
     } else if (this.tui) {
