@@ -434,12 +434,11 @@ describe("TaskStore (file-backed)", () => {
 });
 
 describe("TaskStore (absolute path)", () => {
-  const absFilePath = join(tmpdir(), `pi-tasks-test-${Date.now()}.json`);
+  const absDir = join(tmpdir(), `pi-tasks-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const absFilePath = join(absDir, "tasks.json");
 
   afterEach(() => {
-    try { rmSync(absFilePath); } catch { /* */ }
-    try { rmSync(absFilePath + ".lock"); } catch { /* */ }
-    try { rmSync(absFilePath + ".tmp"); } catch { /* */ }
+    try { rmSync(absDir, { recursive: true, force: true }); } catch { /* */ }
   });
 
   it("accepts absolute path and persists tasks", () => {
@@ -459,5 +458,33 @@ describe("TaskStore (absolute path)", () => {
 
     const raw = JSON.parse(readFileSync(absFilePath, "utf-8"));
     expect(raw.tasks).toHaveLength(2);
+  });
+
+  it("syncs to empty when the backing file is deleted during a running session", () => {
+    const store = new TaskStore(absFilePath);
+    store.create("Deleted task", "Desc");
+
+    rmSync(absFilePath);
+
+    expect(store.list()).toHaveLength(0);
+    const recreated = store.create("Recreated task", "Desc");
+
+    expect(recreated.id).toBe("1");
+    expect(store.list()).toHaveLength(1);
+  });
+
+  it("recreates the backing directory when it is deleted during a running session", () => {
+    const store = new TaskStore(absFilePath);
+    store.create("Deleted dir task", "Desc");
+
+    rmSync(absDir, { recursive: true, force: true });
+
+    expect(store.list()).toHaveLength(0);
+    const recreated = store.create("Recreated after dir delete", "Desc");
+    const raw = JSON.parse(readFileSync(absFilePath, "utf-8"));
+
+    expect(recreated.id).toBe("1");
+    expect(raw.tasks).toHaveLength(1);
+    expect(raw.tasks[0].subject).toBe("Recreated after dir delete");
   });
 });

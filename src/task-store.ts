@@ -34,12 +34,13 @@ const LOCK_RETRY_MS = 50;
 const LOCK_MAX_RETRIES = 100; // 5s max
 
 /** Simple file-based locking. */
-function acquireLock(lockPath: string): void {
+function acquireLock(lockPath: string): string {
+  const token = `${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
     try {
       // O_EXCL: fail if file exists
-      writeFileSync(lockPath, `${process.pid}`, { flag: "wx" });
-      return;
+      writeFileSync(lockPath, token, { flag: "wx" });
+      return token;
     } catch (e: any) {
       if (e.code === "EEXIST") {
         // Check for stale lock (process no longer running)
@@ -61,8 +62,10 @@ function acquireLock(lockPath: string): void {
   throw new Error(`Failed to acquire lock: ${lockPath}`);
 }
 
-function releaseLock(lockPath: string): void {
-  try { unlinkSync(lockPath); } catch { /* ignore */ }
+function releaseLock(lockPath: string, token: string): void {
+  try {
+    if (readFileSync(lockPath, "utf-8") === token) unlinkSync(lockPath);
+  } catch { /* ignore */ }
 }
 
 function isProcessRunning(pid: number): boolean {
@@ -81,16 +84,29 @@ export class TaskStore {
     if (!listIdOrPath) return;
     const isAbsPath = isAbsolute(listIdOrPath);
     const filePath = isAbsPath ? listIdOrPath : join(TASKS_DIR, `${listIdOrPath}.json`);
-    mkdirSync(dirname(filePath), { recursive: true });
     this.filePath = filePath;
     this.lockPath = filePath + ".lock";
+    this.ensureDirectory();
     this.load();
+  }
+
+  private reset(): void {
+    this.nextId = 1;
+    this.tasks.clear();
+  }
+
+  private ensureDirectory(): void {
+    if (!this.filePath) return;
+    mkdirSync(dirname(this.filePath), { recursive: true });
   }
 
   /** Read store from disk (file-backed mode only). */
   private load(): void {
     if (!this.filePath) return;
-    if (!existsSync(this.filePath)) return;
+    if (!existsSync(this.filePath)) {
+      this.reset();
+      return;
+    }
     try {
       const data: TaskStoreData = JSON.parse(readFileSync(this.filePath, "utf-8"));
       this.nextId = data.nextId;
@@ -98,12 +114,15 @@ export class TaskStore {
       for (const t of data.tasks) {
         this.tasks.set(t.id, t);
       }
-    } catch { /* corrupt file — start fresh */ }
+    } catch {
+      this.reset();
+    }
   }
 
   /** Write store to disk atomically (file-backed mode only). */
   private save(): void {
     if (!this.filePath) return;
+    this.ensureDirectory();
     const data: TaskStoreData = {
       nextId: this.nextId,
       tasks: Array.from(this.tasks.values()),
@@ -116,14 +135,15 @@ export class TaskStore {
   /** Execute a mutation with file locking (if file-backed). */
   private withLock<T>(fn: () => T): T {
     if (!this.lockPath) return fn();
-    acquireLock(this.lockPath);
+    this.ensureDirectory();
+    const lockToken = acquireLock(this.lockPath);
     try {
       this.load(); // Re-read latest state
       const result = fn();
       this.save();
       return result;
     } finally {
-      releaseLock(this.lockPath);
+      releaseLock(this.lockPath, lockToken);
     }
   }
 
